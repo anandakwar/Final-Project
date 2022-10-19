@@ -5,21 +5,34 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib.dates as mdates
 import dateutil
+from tabulate import tabulate
 import os
 from scipy import ndimage
 import boto3
 import botocore
 import holidays
 import datetime
+import tkinter as tk
+from tkinter import *
+import customtkinter
+root= tk.Tk()
+DATA_FILES_DIR = r"C:\Users\Admin\Desktop\fin\csv"
+s3 = boto3.client('s3')
+customtkinter.set_appearance_mode("Dark")
+customtkinter.set_default_color_theme("blue")
+class school:
+  def __init__(self, name, student_num , sq_meters ,relig_background ,region):
+    self.name = name
+    self.student_num = student_num
+    self.sq_meters = sq_meters
+    self.relig_background=relig_background
+    self.region=region
 
-
-# from edge_detection import event_detector
 
 def event_detector(df):
 
     times = np.arange(0, len(df[0]), 1)
     df = np.array(df)[0]
-
     filtered = ndimage.median_filter(df, 3)
     plt.plot(times, filtered)
     t_positive = 0.3
@@ -63,8 +76,7 @@ def event_detector(df):
 
 def gen_CSV(path, file_name):
     # connect to db
-    con = pyodbc.connect(
-        r'Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=' + os.path.join(path, file_name) + ';')
+    con = pyodbc.connect(r'Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=' + os.path.join(path, file_name) + ';')
     cur = con.cursor()
     col_desc = list(cur.columns())
     table_names = []
@@ -122,7 +134,7 @@ def calc_energy(E,df):
     return E
 
 
-def plot_param_2(CSV_FLAG, columns, Ts,num):
+def plot_param_2(slave,CSV_FLAG, columns, Ts,num,rep):
     phase_counter =0
     for i in range(1, len(columns)):
         if Ts >= 30:
@@ -159,15 +171,20 @@ def plot_param_2(CSV_FLAG, columns, Ts,num):
                 energy_df['timestamp']=time
                 energy_df['kw']=dfs.values
                 e_vals=calc_energy(e_vals, energy_df)
-                print('Total Energy in kWh for phase #', end= "")
-                print(phase_counter, end =" on date ")
-                print(str(time[0].day) +"-"+str(time[0].month)+ "-" + str(time[0].year), end=" is: ")
-                print(np.transpose(e_vals)[-1, :] / 3600)
+                slave.geometry("800x300")
+                slave.title("Energy window")
+                slave['bg'] = "white"
+                label=Label(slave,bg='white',font=('century',12),text='Total Energy in kWh for phase #'+str(phase_counter)+' on date '+str(time[0].day) +"-"+str(time[0].month)+ "-" + str(time[0].year)+" is: "+str(np.transpose(e_vals)[-1, :] / 3600))
+                label.pack()
+                #print(phase_counter, end =" on date ")
+                #print(str(time[0].day) +"-"+str(time[0].month)+ "-" + str(time[0].year), end=" is: ")
+                #print(np.transpose(e_vals)[-1, :] / 3600)
             ax = plt.subplot(len(files), 1, file_n + 1)
-            first =file[0:4]+'/' +file[4:6] + '/' + file[6:8] +' ' + file[8:10] + ':'+ file[10:12]
-            second =file[13:17]+'/' +file[17:19] + '/' + file[19:21] +' ' + file[21:23] + ':'+ file[23:25]
+            plt.subplots_adjust(hspace=0.6)
+            first =file[6:10]+'/' +file[10:12] + '/' + file[12:14] +' ' + file[14:16] + ':'+ file[16:18]
+            second =file[19:23]+'/' +file[23:25] + '/' + file[25:27] +' ' + file[27:29] + ':'+ file[29:31]
             if(file !='merged.csv'):
-                ax.title.set_text(columns[i] + ' of ' + first +' to '+ second)
+                ax.title.set_text(columns[i] + ' of school ' +file[0:5] +' from '+ first +' to '+ second)
             else:
                 ax.title.set_text(columns[i] + ' of ' + file)
             plt.step(time, dfs)  # 'step' is the zero order interpolation plot function.
@@ -225,132 +242,347 @@ def dilute_sampales(data, new_gap):
     new_data.insert(0, data[0])
     return new_data
 
+def diff_day():
+    def days():
+        def holiday_checker(holiday_in):
+            valid=0
+            for page in content :
+                for obj in page['Contents']:
+                    if valid < 40 and ( obj['Key'][0:5] =="rabin" or obj['Key'][0:6] =="AvneH_" or obj['Key'][0:5] =="zokim" or obj['Key'][0:5] =="mosva") :
+                        cp_list.append(obj['Key'])
+                        valid = valid + 1
+            counter =0
+            i=0
+            j=0
+            while j < len(cp_list):
+                date=cp_list[j]
+                year = date[6:10]
+                month= date[10:12]
+                day = date[12:14]
+                new_format=  str(month + '-' + day + '-' +year)
+                new_format_t = pd.Timestamp(new_format)
+                if i< num:
+                    mon=selcpy[i].get()
+                    if mon== "רבין" :
+                        mon="rabin"
+                    if mon =="אבני חושן":
+                        mon="AvneH"
+                    if mon == "צוקים":
+                        mon="zokim"
+                    if mon == "תיכון המושבה":
+                        mon="mosva"
+                    day_in = str(a[i].get())
+                    j+=1
+                    if holiday_in[i] == "holiday":
+                        if (new_format_t.day_name() == day_in) and ((new_format_t in holidays.Israel()) or (new_format_t.day_name()=="Friday") or (new_format_t.day_name()=="Saturday")) and (counter < num) and (date[0:5] == mon):
+                            s_days.append(date)
+                            counter =counter+1
+                            i += 1
+                            j=0
+                    else:
+                        if (new_format_t.day_name() == day_in) and (new_format_t not in holidays.Israel()) and (counter < num) and (date[0:5]==mon):
+                            s_days.append(date)
+                            counter=counter+1
+                            i+=1
+                            j=0
+                else :
+                    break
 
-def holiday_checker(day_in, holiday_in):
+            for target in s_days:
+                to_download=target
+                to_download_path = str(DATA_FILES_DIR + '\\' + to_download)
+                try:
+                    s3.download_file("satec-flamiingo", to_download, to_download_path)
+                except botocore.exceptions.ClientError as e:
+                    if e.response['Error']['Code'] == "404":
+                        label = Label(root, text="The requested file does not exist.")
+                        label.pack()
+                        exit(1)
+            join = os.path.join(DATA_FILES_DIR, "*.csv")
+            button = Button(root, text="Give Me Graphs!", command=lambda: main(num))
+            button.pack(padx=5,pady=5)
+            return num
+
+
+        num=int(num_val.get())
+        H_day = []
+        a = [0]*num
+        selcpy=[0]*num
+        for i in range(num):
+            label=Label(root,text ="Enter day number " +str(i+1) +" in the week :")
+            label.pack()
+            a[i]=Entry(root,width=35)
+            a[i].pack(padx=5,pady=5, side= TOP)
+            hol = tk.Checkbutton(root, text="Holiday", command=lambda: H_day.append("holiday"))
+            wor = tk.Checkbutton(root, text="Workday", command=lambda: H_day.append("workday"))
+            hol.pack()
+            wor.pack()
+            selcpy[i] = StringVar(root)
+            selcpy[i].set("Choose a Monitor")
+            menu = OptionMenu(root, selcpy[i], "רבין", "אבני חושן","צוקים","תיכון המושבה")
+            menu.pack()
+        button1 = Button(root, text="Next", command=lambda:holiday_checker(H_day))
+        button1.pack()
+
+    same_weekday_button.destroy()
+    diff_Weekday_button.destroy()
+    Dates_button.destroy()
     s3 = boto3.client('s3')
-    objects = []
-    valid = 0
+    s_days = []
+    cp_list = []
+    paginator = s3.get_paginator('list_objects_v2')
+    content = paginator.paginate(Bucket='satec-flamiingo')
+    label = Label(root, text="Please enter number of days :", font=('century', 12))
+    label.pack()
+    num_val = Entry(root, width=35)
+    num_val.pack(padx=5, pady=5)
+    button1 = Button(root, text="Next", command=days)
+    button1.pack()
+
+def same_day():
+    def newfunc():
+        def sec_func():
+            def checker():
+                x=0
+                for page in content:
+                    valid_names =0
+                    for obj in page['Contents']:
+                        if obj['Key'][0:5] == "zokim" or obj['Key'][0:5] =="mosva" or obj['Key'][0:6] =="AvneH_" or obj['Key'][0:5] =="rabin":
+                            s_days.append(obj['Key'])
+                    num=int(num_val.get())
+                    w_day=str(day_ent.get())
+                selected = sel.get()
+                if selected == "רבין":
+                    selected = "rabin"
+                if selected == "אבני חושן":
+                    selected = "AvneH"
+                if selected == "צוקים":
+                    selected = "zokim"
+                if selected == "תיכון המושבה":
+                    selected = "mosva"
+                for val in s_days:
+                    prep_date = str(val[10:12] + '-' + val[12:14] + '-' + val[6:10])
+                    prep_date_format = pd.Timestamp(prep_date)
+                    if (prep_date_format.day_name() == w_day) and (x < num) and (val[0:5]==selected):
+                        cp_list.append(val)
+                        x = x + 1
+                        val = 0
+                if len(cp_list) == 0:
+                    label=Label(root,text="No occurences were found, exiting...")
+                    label.pack()
+                    exit(1)
+                elif len(cp_list) < num:
+                    label=Label(root,text="Not enough occurences were found, plotting" +str(x) + "occurences\n")
+                for obj in cp_list:
+                    to_download = obj
+                    to_download_path = str(DATA_FILES_DIR + '\\' + to_download)
+                    try:
+                        s3.download_file("satec-flamiingo", to_download, to_download_path)
+                    except botocore.exceptions.ClientError as e:
+                        if e.response['Error']['Code'] == "404":
+                            label = Label(root, text="The requested file does not exist.")
+                            label.pack()
+                            exit(1)
+                join = os.path.join(DATA_FILES_DIR, "*.csv")
+                button = Button(root, text="Give Me Graphs!", command=lambda: main(num))
+                button.pack(padx=5,pady=5)
+                return num
+
+            label = Label(root, text="Please enter number of occurences :",font=('century',12))
+            label.pack()
+            num_val = Entry(root, width=35)
+            num_val.pack(padx=5, pady=5)
+            button1 = Button(root, text="Next", command=checker)
+            button1.pack()
+
+        label = Label(root, text="Please enter day in the week :", font=('century', 12))
+        label.pack()
+        day_ent = Entry(root, width=35)
+        day_ent.pack(padx=5, pady=5)
+        button1 = Button(root, text="Next ", command=sec_func)
+        button1.pack()
+
+    same_weekday_button.destroy()
+    diff_Weekday_button.destroy()
+    Dates_button.destroy()
+    s3 = boto3.client('s3')
+    s_days = []
+    cp_list=[]
+    x=0
+    valid_names = 0
     paginator =s3.get_paginator('list_objects_v2')
-    pages =paginator.paginate(Bucket='satec-flamiingo')
-    for page in pages :
-        for obj in page['Contents']:
-            if valid < 6 :
-                objects.append(obj['Key'])
-                valid = valid + 1
-    for date in objects :
-        year = date[0:4]
-        month= date[4:6]
-        day = date[6:8]
-        new_format=  str(month + '-' + day + '-' +year)
-        new_format_t = pd.Timestamp(new_format)
-        if holiday_in == "holiday":
-            if (new_format_t.day_name() == day_in) and (new_format_t in holidays.Israel()):
-                return date
-        else:
-            if (new_format_t.day_name() == day_in) and (new_format_t not in holidays.Israel()) :
-                return date
+    content =paginator.paginate(Bucket='satec-flamiingo')
+    sel = StringVar(root)
+    sel.set("Choose a Monitor")
+    menu = OptionMenu(root, sel, "רבין", "אבני חושן", "צוקים", "תיכון המושבה")
+    menu.pack()
+    newfunc()
 
 
-def findfile(DATA_FILES_DIR):
-    filenames = []
-    s3 = boto3.client('s3')
-    choice = int(input("choose an option : 1.date                   2.day in the week\n"))
-    if choice==2 :
-        num = int(input("Please enter number of days :"))
-        for i in range(num):
-            print("Please enter day #" , end ="")
-            print(i+1 ,end="")
-            day_in = input(str(" in the week\n"))
-            holiday_in = input(str("Choose: holiday/workday\n"))
-            file_name = holiday_checker(day_in, holiday_in)
-            filenames.append(file_name)
-    elif choice ==1:
-        num = int(input("Please enter number of days :"))
-        file_name = 'yeardate0000_yeardate2359.csv'
-        print ("Now enter the dates in order in %m-%d-%y format")
-        for i in range(num):
-            print("Date of day #" , end="")
-            print(i+1 ,end=": ")
-            scanner = str(input())
-            to_timestamp = pd.Timestamp(scanner)
-            to_format = datetime.datetime.strptime(scanner, '%m-%d-%Y').strftime('%Y%m%d')
-            print("The day you requested is a", to_timestamp.day_name(), end=", ")
-            if to_timestamp in holidays.Israel() or to_timestamp.day_name() == "Friday" or to_timestamp.day_name() =="Saturday" :
-                print("this day is a holiday")
-            else :
-                print("this day is a workday")
-            file_name = file_name.replace(file_name[0:8],   to_format)
-            file_name = file_name.replace(file_name[13:21],  to_format)
-            filenames.append(file_name)
-    else :
-        print("invalid option , exiting code...")
-        num =0
-        return num
-    for obj in filenames :
-        to_download = obj
-        to_download_path =str(DATA_FILES_DIR +'\\' + to_download)
-        try:
-            s3.download_file("satec-flamiingo", to_download, to_download_path)
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "404":
-                print("The requested file does not exist.")
-                exit(1)
-    join = os.path.join(DATA_FILES_DIR, "*.csv")
-    return num
 
 
-def merge_csv_files(DATA_FILES_DIR,DATA_FILES_DIR2):  #no need for this function anymore
-    file_list = [DATA_FILES_DIR + "\\" + f for f in os.listdir(DATA_FILES_DIR)]
-    csv_list = []
-    csv_list=[pd.read_csv(file) for file in file_list]
-    csv_merged = pd.concat(csv_list, ignore_index=True)
-    csv_merged.to_csv(DATA_FILES_DIR2 + "\\" + 'merged.csv', index=False)
+class Table:
+    def __init__(self, slave,data,rows,cols):
 
-# --------MAIN----------#
-if __name__ == '__main__':
-    DATA_FILES_DIR = r"C:\Users\Admin\Desktop\fin\csv"   # on your computer open an empty folder called downloads and put here the path
-    num = findfile(DATA_FILES_DIR)
-    if num ==0:
-        quit(0)
-    dont_change =DATA_FILES_DIR     # on your computer open an empty folder called downloads and put here the path
-    DATA_FILES_DIR2 = r"C:\Users\Admin\Desktop\fin\merged"
-    #if (input("do you want to compare days?: yes/no:")=="yes"):
-        #DATA_FILES_DIR = dont_change
-    #else:
-        #merge_csv_files(DATA_FILES_DIR, DATA_FILES_DIR2)
-        #DATA_FILES_DIR = DATA_FILES_DIR2
+        # code for creating table
+        for i in range(rows):
+            for j in range(cols):
+                self.e = Entry(slave, width=16, fg='black',font=('century', 12, 'bold'))
+                self.e.grid(row=i, column=j)
+                self.e.insert(END, data[i][j])
+
+def get_reports(slave,rep):
+    button_frame = tk.LabelFrame(slave)
+    button_frame.pack(padx=6,pady=5)
+    rows,cols=(len(rep)+1,5)
+    data=[[0 for i in range(cols)] for j in range(rows)]
+    for z in range(len(rep)):
+        data[z+1][0]=rep[z].name
+        data[z+1][1]=rep[z].student_num
+        data[z+1][2]=rep[z].sq_meters
+        data[z+1][3]=rep[z].relig_background
+        data[z+1][4]=rep[z].region
+    data[0][0]= "Monitor name"
+    data[0][1]="number of students"
+    data[0][2]="square meters"
+    data[0][3]="religious background"
+    data[0][4]="region"
+    t=Table(button_frame,data,rows,cols)
+
+def main(num):
+    dont_change = DATA_FILES_DIR  # on your computer open an empty folder called downloads and put here the path
+    DATA_FILES_DIR2 = r"C:\Users\Public\Project\merged"
+    # if (input("do you want to compare days?: yes/no:")=="yes"):
+    # DATA_FILES_DIR = dont_change
+    # else:
+    # merge_csv_files(DATA_FILES_DIR, DATA_FILES_DIR2)
+    # DATA_FILES_DIR = DATA_FILES_DIR2
     files = os.listdir(DATA_FILES_DIR)
+    if len(files) == 0:
+        quit(0)
     file = files[0]
+    rep=[]
     if not file.endswith("csv"):
         for file in files:
             get_data(DATA_FILES_DIR, file)
-        print('Plotting requested files ...')
         columns = list(['timestamp', 'P1', 'P2', 'P3'])
     else:
-        print('Plotting requested files ...')
+        for file in files :
+            if file[0:5] == "zokim":
+                rep.append(school("צוקים",350,"NA","ממלכתי דתי","center"))
+            if file[0:5] == "AvneH":
+                rep.append(school("חושן אבני",300,1500,"ממלכתי דתי","center"))
+            if file[0:5] == "rabin":
+                rep.append(school("רבין","NA","NA","NA","center"))
+            if file[0:5] == "mosva":
+                rep.append(school("המושבה תיכון",1500,100000,"NA","Haifa"))
         columns = list(['timestamp', 'P1', 'P2', 'P3'])
-    #gen_plots(file,num, ['mock_param'], -1, CSV_FLAG=1, columns=columns)  # built for csv from dekel
+    # gen_plots(file,num, ['mock_param'], -1, CSV_FLAG=1, columns=columns)  # built for csv from dekel
     Ts = 1
-    CSV_FLAG=1
+    CSV_FLAG = 1
+    flag=0
     for x in ['mock_param']:
-        plot_param_2(CSV_FLAG , columns, Ts,num)
+        slave = tk.Tk()
+        if flag==0:
+            get_reports(slave,rep)
+            flag=1
+        plot_param_2(slave,CSV_FLAG, columns, Ts, num,rep)
     os.chdir(dont_change)
     all_files = os.listdir()
     for f in all_files:
         os.remove(f)
-    # else: #print a parameter of each file seperatly
-    #     for file in files:
-    #         # mdb from yuval
-    #         if file.endswith("mdb"):# TODO: make sure file.startswith(phase):
-    #             print(file)
-    #             phase = str(input("Please enter Phase: the options are 1, 2, 3"))
-    #             if phase not in ["1", "2", "3"]:
-    #                 raise IOError("please choose phase 1, 2, 3 ")
-    #             # params = str(input("Please choose parameters: the options are I, P, Q, V, ANG, THD"))
-    #             # if params not in ['I', 'P', 'Q', 'V', 'ANG', 'THD']:
-    #             #     raise IOError("please choose params from the list")
-    #             params=['I']
-    #             get_data(DATA_FILES_DIR, file)
-    #             gen_plots(file,params, int(phase),CSV_FLAG=0,columns=[])#columns is un-used
-    #             # plt.show()
 
+
+def Dates():
+    def Dates_after_inputs():
+        def myscanner():
+            def start_drawing():
+                for obj in filenames:
+                    to_download = obj
+                    to_download_path = str(DATA_FILES_DIR + '\\' + to_download)
+                    try:
+                        s3.download_file("satec-flamiingo", to_download, to_download_path)
+                    except botocore.exceptions.ClientError as e:
+                        if e.response['Error']['Code'] == "404":
+                            label = Label(root,text="The requested file does not exist.")
+                            label.pack()
+                            print("The requested file does not exist.")
+                            exit(1)
+                join = os.path.join(DATA_FILES_DIR, "*.csv")
+                button = Button(root, text="Give Me Graphs", command=main(num1))
+                button.pack(padx=5,pady=5)
+                return num1
+            filenames = []
+            s3 = boto3.client('s3')
+            file_name = 'name1_yeardate0000_yeardate2359.csv'
+            button1.destroy()
+            for j in range(len(c)):
+                scanner = str(c[j].get())
+                selected =str(sel[j].get())
+                to_timestamp = pd.Timestamp(scanner)
+                to_format = datetime.datetime.strptime(scanner, '%m-%d-%Y').strftime('%Y%m%d')
+                if to_timestamp in holidays.Israel() or to_timestamp.day_name() == "Friday" or to_timestamp.day_name() == "Saturday":
+                    label = Label(root, text = scanner + " is a "+ to_timestamp.day_name() + ", this day is a holiday")
+                    label.pack()
+                else:
+                    label = Label(root, text = scanner + " is a " + to_timestamp.day_name() + ", this day is a workday")
+                    label.pack()
+                file_name = file_name.replace(file_name[6:14], to_format)
+                file_name = file_name.replace(file_name[19:27], to_format)
+                if selected =="רבין":
+                    selected="rabin"
+                if selected =="אבני חושן" :
+                    selected="AvneH"
+                if selected == "צוקים" :
+                    selected ="zokim"
+                if selected == "תיכון המושבה":
+                    selected = "mosva"
+                file_name = file_name.replace(file_name[0:5], selected)
+                filenames.append(file_name)
+            button = Button(root, text="Next", command=start_drawing)
+            button.pack(padx=5,pady=5)
+        label = Label(root,text="Now enter the dates in order in %m-%d-%y format")
+        label.pack()
+        num1 = int(a.get())
+        if num1 == 0:
+            quit(0)
+        button.destroy()
+        c = [0]*num1
+        sel=[0]*num1
+        for i in range(num1):
+            label = Label(root,text="Date of day "+str(i+1)+": ")
+            label.pack()
+            c[i] = Entry(root, width=35)
+            c[i].pack(padx=5, pady=5)
+            sel[i] = StringVar(root)
+            sel[i].set("Choose a Monitor")
+            menu= OptionMenu(root, sel[i], "רבין", "אבני חושן", "צוקים", "תיכון המושבה")
+            menu.pack()
+        button1 = Button(root, text="Next", command=myscanner)
+        button1.pack()
+
+    same_weekday_button.destroy()
+    diff_Weekday_button.destroy()
+    Dates_button.destroy()
+    Label(root, text='Please enter number of days:').pack()
+    a = Entry(root, width=35)
+    a.pack(padx = 5, pady = 5)
+    button = Button(root,text="Next",command =Dates_after_inputs)
+    button.pack()
+
+
+##########################  code starts here ####################################################################
+root.geometry("500x600")
+root.title("Project Gui")
+img = PhotoImage(file=r"C:\Users\Admin\Desktop\fin\finalproject.png")
+bg_label=Label(root,image=img)
+bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+label = tk.Label(root,text = "Choose an option:", font=('century', 14))
+label.pack(padx = 5, pady = 5)
+Dates_button = tk.Button(root, text="Dates", font=('century',12),bg="light blue",fg="black", command=Dates)
+Dates_button.pack(padx = 10, pady = (0,500),side=tk.LEFT)
+diff_Weekday_button = tk.Button(root, text="different days in the week",bg="light blue",fg="black", font=('century',12),command=diff_day)
+diff_Weekday_button.pack(padx = 5, pady = (0,500),side=tk.LEFT)
+same_weekday_button = tk.Button(root, text="same day in the week",bg="light blue",fg="black", font=('century',12), command=same_day)
+same_weekday_button.pack(padx = 5, pady = (0,500),side=tk.LEFT)
+root.mainloop()
